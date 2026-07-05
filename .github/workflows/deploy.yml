@@ -42,7 +42,8 @@ jobs:
         run: pnpm run build
 
       - name: Add 404.html for SPA routing
-        run: cp dist/index.html dist/404.html
+        run: |
+          echo "404.html already in dist from public/ folder"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

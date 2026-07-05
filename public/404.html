@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Atelier Angélique</title>
+    <script>
+      // Save the full path and redirect to the app root so React Router handles it
+      var base = '/ecommerce-/';
+      var path = window.location.pathname;
+      var search = window.location.search;
+      var hash = window.location.hash;
+      // Store where the user wanted to go
+      sessionStorage.setItem('spa-redirect', path + search + hash);
+      // Redirect to the base so index.html loads, then restores the path
+      window.location.replace(base);
+    </script>
+  </head>
+  <body></body>
+</html>
