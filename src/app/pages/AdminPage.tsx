@@ -868,7 +868,7 @@ function SiteTab() {
                 </div>
               ))}
             </div>
-            <a href="/" target="_blank" className="inline-flex items-center gap-2 border border-[#FFD1DC] hover:border-[#FF007F] text-[#7a4060] hover:text-[#FF007F] font-['Poppins'] text-[10px] uppercase tracking-widest px-4 py-2.5 transition-colors">
+            <a href={import.meta.env.BASE_URL} target="_blank" className="inline-flex items-center gap-2 border border-[#FFD1DC] hover:border-[#FF007F] text-[#7a4060] hover:text-[#FF007F] font-['Poppins'] text-[10px] uppercase tracking-widest px-4 py-2.5 transition-colors">
               <Eye size={13} /> Preview Store
             </a>
           </div>
@@ -1247,7 +1247,7 @@ export default function AdminPage() {
         ))}
       </nav>
       <div className="px-3 py-4 border-t border-white/10 space-y-0.5">
-        <a href="/" target="_blank" className="w-full flex items-center gap-3 px-3 py-2.5 font-['Poppins'] text-[10px] text-white/30 hover:text-[#FF6ECF] uppercase tracking-widest transition-colors">
+        <a href={import.meta.env.BASE_URL} target="_blank" className="w-full flex items-center gap-3 px-3 py-2.5 font-['Poppins'] text-[10px] text-white/30 hover:text-[#FF6ECF] uppercase tracking-widest transition-colors">
           <ShoppingBag size={14} /> View Store
         </a>
         <button onClick={() => { logout(); navigate("/"); }} className="w-full flex items-center gap-3 px-3 py-2.5 font-['Poppins'] text-[10px] text-white/30 hover:text-[#FF007F] uppercase tracking-widest transition-colors">

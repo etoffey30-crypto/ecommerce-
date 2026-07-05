@@ -123,7 +123,7 @@ function Navbar({ onSearch, activeFilter, onFilterChange, onAccountOpen }: {
                   <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-[#FFD1DC] shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 rounded-sm overflow-hidden z-50">
                     <p className="px-4 py-2 font-['Poppins'] text-[10px] text-[#7a4060] tracking-wide uppercase border-b border-[#FFD1DC]">{user.name}</p>
                     {user.role === "admin" && (
-                      <a href="/admin" className="block px-4 py-2.5 font-['Poppins'] text-xs text-[#2d1a26] hover:bg-[#fff0f5] hover:text-[#FF007F] transition-colors">✦ Admin Panel</a>
+                      <a href={`${import.meta.env.BASE_URL}admin`} className="block px-4 py-2.5 font-['Poppins'] text-xs text-[#2d1a26] hover:bg-[#fff0f5] hover:text-[#FF007F] transition-colors">✦ Admin Panel</a>
                     )}
                     <button onClick={onAccountOpen} className="w-full text-left px-4 py-2.5 font-['Poppins'] text-xs text-[#2d1a26] hover:bg-[#fff0f5] hover:text-[#FF007F] transition-colors">Purchases & Tracking</button>
                     <button onClick={logout} className="w-full text-left px-4 py-2.5 font-['Poppins'] text-xs text-[#2d1a26] hover:bg-[#fff0f5] hover:text-[#FF007F] transition-colors">Sign Out</button>
