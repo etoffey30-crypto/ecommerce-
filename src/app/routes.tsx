@@ -11,22 +11,25 @@ function AppLayout() {
   );
 }
 
-export const router = createBrowserRouter([
-  {
-    Component: AppLayout,
-    children: [
-      {
-        path: "/",
-        Component: StorePage,
-      },
-      {
-        path: "/admin",
-        Component: AdminPage,
-      },
-      {
-        path: "*",
-        Component: StorePage,
-      },
-    ],
-  },
-]);
+export const router = createBrowserRouter(
+  [
+    {
+      Component: AppLayout,
+      children: [
+        {
+          path: "/",
+          Component: StorePage,
+        },
+        {
+          path: "/admin",
+          Component: AdminPage,
+        },
+        {
+          path: "*",
+          Component: StorePage,
+        },
+      ],
+    },
+  ],
+  { basename: import.meta.env.BASE_URL }
+);
