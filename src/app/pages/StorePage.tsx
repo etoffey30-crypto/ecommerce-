@@ -1,9 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Search, ShoppingBag, User, Menu, X, Heart,
   Star, Instagram, Facebook, Twitter, Mail, Phone, MapPin,
-  ArrowRight, Minus, Plus, Trash2, ChevronDown, ChevronRight, Home,
+  ArrowRight, Minus, Plus, Trash2, ChevronDown, ChevronRight, ChevronLeft, Home,
   ReceiptText, Clock, PackageCheck, Truck, CheckCircle2
 } from "lucide-react";
 import { useApp, Product, ORDER_STATUS_FLOW, ORDER_STATUS_LABELS, Order } from "../context/AppContext";
@@ -270,71 +270,328 @@ function CategorySection({ activeFilter, onFilterChange }: {
   );
 }
 
-// ─── Product Card ───────────────────────────────────────────────────────────────
-function ProductCard({ product, onAddToCart, onPurchase }: { product: Product; onAddToCart: () => void; onPurchase: () => void }) {
-  const { formatMoney } = useApp();
-  const [liked, setLiked] = useState(false);
-  const [added, setAdded] = useState(false);
-  const [hovered, setHovered] = useState(false);
+// ─── Product Detail Modal ───────────────────────────────────────────────────────
+const SIZES = ["Small", "Medium", "Large"] as const;
+type Size = typeof SIZES[number];
+
+function ProductDetailModal({ product, onClose }: { product: Product; onClose: () => void }) {
+  const { addToCart, user, setAuthOpen, purchaseProduct, formatMoney } = useApp();
   const [activeImg, setActiveImg] = useState(0);
-  const intervalRef = useState<ReturnType<typeof setInterval> | null>(null);
+  const [selectedSize, setSelectedSize] = useState<Size>("Medium");
+  const [qty, setQty] = useState(1);
+  const [liked, setLiked] = useState(false);
+  const [tab, setTab] = useState<"details" | "shipping">("details");
+  const [isAdded, setIsAdded] = useState(false);
+  const [purchaseStep, setPurchaseStep] = useState<"idle" | "confirm" | "done">("idle");
+  const [deliveryLocation, setDeliveryLocation] = useState("");
 
   const images = product.images?.length ? product.images : (product.image ? [product.image] : []);
-  const hasMultiple = images.length > 1;
 
-  const handleMouseEnter = () => {
-    setHovered(true);
-    if (!hasMultiple) return;
-    let i = 1;
-    const id = setInterval(() => {
-      setActiveImg(i % images.length);
-      i++;
-    }, 1800);
-    (intervalRef as any)[0] = id;
+  // Close on backdrop click / escape
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
+  }, [onClose]);
+
+  const handleAddToCart = () => {
+    if (!user) { setAuthOpen(true); return; }
+    for (let i = 0; i < qty; i++) addToCart(product);
+    setIsAdded(true);
+    setTimeout(() => setIsAdded(false), 2000);
   };
 
-  const handleMouseLeave = () => {
-    setHovered(false);
-    setActiveImg(0);
-    if ((intervalRef as any)[0]) { clearInterval((intervalRef as any)[0]); (intervalRef as any)[0] = null; }
+  const handleBuyNow = () => {
+    if (!user) { setAuthOpen(true); return; }
+    setPurchaseStep("confirm");
   };
 
-  const handleAdd = () => { onAddToCart(); setAdded(true); setTimeout(() => setAdded(false), 1500); };
-  const handlePurchase = () => {
-    onPurchase();
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1500);
+  const confirmPurchase = () => {
+    if (!deliveryLocation.trim()) return;
+    purchaseProduct(product, deliveryLocation.trim(), qty);
+    setPurchaseStep("done");
   };
+
   const badgeColors: Record<string, string> = {
     Sale: "bg-[#FF007F] text-white", Hot: "bg-[#2d1a26] text-white", New: "bg-[#FF6ECF] text-white",
   };
 
   return (
     <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 24 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 24 }} transition={{ duration: 0.3, ease: "easeOut" }}
+        className="bg-white w-full max-w-4xl max-h-[92vh] overflow-y-auto shadow-2xl relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close button */}
+        <button onClick={onClose}
+          className="absolute top-4 right-4 z-20 w-9 h-9 bg-white border border-[#FFD1DC] rounded-full flex items-center justify-center hover:border-[#FF007F] hover:text-[#FF007F] transition-colors shadow-sm">
+          <X size={16} />
+        </button>
+
+        {purchaseStep === "done" ? (
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center justify-center py-20 px-8 text-center">
+            <CheckCircle2 size={52} className="text-green-500 mb-4" />
+            <h3 className="font-['Playfair_Display'] text-2xl font-bold text-[#2d1a26] mb-2">Order Placed!</h3>
+            <p className="font-['Poppins'] text-sm text-[#7a4060] mb-1">
+              <span className="font-semibold text-[#2d1a26]">{qty}× {product.name}</span> ({selectedSize})
+            </p>
+            <p className="font-['Poppins'] text-xs text-[#7a4060] mb-6">We'll start handmaking your piece right away 💗</p>
+            <button onClick={onClose}
+              className="bg-[#FF007F] hover:bg-[#d4006a] text-white font-['Poppins'] text-[10px] tracking-widest uppercase px-8 py-3 transition-colors">
+              Continue Shopping
+            </button>
+          </motion.div>
+        ) : purchaseStep === "confirm" ? (
+          <div className="p-8 max-w-md mx-auto">
+            <h3 className="font-['Playfair_Display'] text-xl font-bold text-[#2d1a26] mb-1">Confirm Order</h3>
+            <p className="font-['Poppins'] text-xs text-[#7a4060] mb-5">
+              {qty}× {product.name} · {selectedSize} · <span className="text-[#FF007F] font-semibold">{formatMoney(product.price * qty)}</span>
+            </p>
+            <label className="block font-['Poppins'] text-[10px] text-[#7a4060] tracking-widest uppercase mb-1.5">Delivery Address</label>
+            <textarea value={deliveryLocation} onChange={(e) => setDeliveryLocation(e.target.value)} rows={3}
+              placeholder="Full address, city, landmark..."
+              className="w-full border border-[#FFD1DC] focus:border-[#FF007F] bg-[#fff9fb] px-3 py-2.5 font-['Poppins'] text-sm text-[#2d1a26] outline-none resize-none mb-5" />
+            <div className="flex gap-3">
+              <button onClick={() => setPurchaseStep("idle")}
+                className="flex-1 border border-[#FFD1DC] text-[#7a4060] font-['Poppins'] text-[10px] tracking-widest uppercase py-3 hover:border-[#FF6ECF] transition-colors">
+                Back
+              </button>
+              <button onClick={confirmPurchase} disabled={!deliveryLocation.trim()}
+                className="flex-1 bg-[#FF007F] hover:bg-[#d4006a] disabled:opacity-50 disabled:cursor-not-allowed text-white font-['Poppins'] text-[10px] tracking-widest uppercase py-3 transition-colors">
+                Place Order
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2">
+            {/* ── Left: Image Gallery ── */}
+            <div className="relative bg-[#fff0f5] flex flex-col">
+              {/* Main image */}
+              <div className="relative overflow-hidden aspect-square md:aspect-auto md:flex-1 md:min-h-[420px]">
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={activeImg}
+                    src={images[activeImg] ?? ""}
+                    alt={product.name}
+                    initial={{ opacity: 0, x: 30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -30 }}
+                    transition={{ duration: 0.35, ease: "easeInOut" }}
+                    className="w-full h-full object-cover"
+                  />
+                </AnimatePresence>
+
+                {product.badge && (
+                  <span className={`absolute top-4 left-4 text-[9px] font-['Poppins'] font-bold tracking-widest uppercase px-2.5 py-1 z-10 ${badgeColors[product.badge] ?? "bg-[#FF6ECF] text-white"}`}>
+                    {product.badge}
+                  </span>
+                )}
+
+                {/* Prev/Next arrows */}
+                {images.length > 1 && (
+                  <>
+                    <button onClick={() => setActiveImg((i) => (i - 1 + images.length) % images.length)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-all hover:scale-110">
+                      <ChevronLeft size={16} className="text-[#2d1a26]" />
+                    </button>
+                    <button onClick={() => setActiveImg((i) => (i + 1) % images.length)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md transition-all hover:scale-110">
+                      <ChevronRight size={16} className="text-[#2d1a26]" />
+                    </button>
+                  </>
+                )}
+
+                {/* Heart */}
+                <button onClick={() => setLiked(!liked)}
+                  className="absolute top-4 right-4 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform">
+                  <Heart size={15} className={liked ? "fill-[#FF007F] text-[#FF007F]" : "text-[#2d1a26]"} />
+                </button>
+              </div>
+
+              {/* Thumbnail strip */}
+              {images.length > 1 && (
+                <div className="flex gap-2 p-3 overflow-x-auto">
+                  {images.map((src, i) => (
+                    <button key={i} onClick={() => setActiveImg(i)}
+                      className={`flex-shrink-0 w-16 h-16 border-2 overflow-hidden transition-all ${activeImg === i ? "border-[#FF007F] scale-105" : "border-transparent opacity-60 hover:opacity-100"}`}>
+                      <img src={src} alt="" className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Right: Product Info ── */}
+            <div className="p-6 md:p-8 flex flex-col">
+              <p className="font-['Poppins'] text-[#FF007F] text-[9px] tracking-[0.4em] uppercase mb-2">{product.category}</p>
+              <h2 className="font-['Playfair_Display'] text-[#2d1a26] text-2xl md:text-3xl font-bold leading-tight mb-3">{product.name}</h2>
+
+              {/* Stars */}
+              <div className="flex items-center gap-1 mb-3">
+                {[...Array(5)].map((_, i) => <Star key={i} size={13} className="fill-[#FF6ECF] text-[#FF6ECF]" />)}
+                <span className="font-['Poppins'] text-[10px] text-[#7a4060]/60 ml-1">(12 reviews)</span>
+              </div>
+
+              {/* Price */}
+              <div className="flex items-baseline gap-3 mb-5">
+                <span className="font-['Poppins'] text-2xl font-bold text-[#FF007F]">{formatMoney(product.price)}</span>
+                {product.originalPrice && (
+                  <span className="font-['Poppins'] text-base text-[#7a4060]/50 line-through">{formatMoney(product.originalPrice)}</span>
+                )}
+                {product.originalPrice && (
+                  <span className="font-['Poppins'] text-xs bg-[#FFD1DC] text-[#FF007F] px-2 py-0.5 font-semibold">
+                    Save {formatMoney(product.originalPrice - product.price)}
+                  </span>
+                )}
+              </div>
+
+              {/* Size selector */}
+              <div className="mb-5">
+                <p className="font-['Poppins'] text-[10px] text-[#7a4060] tracking-widest uppercase mb-2">
+                  Size: <span className="text-[#2d1a26] font-semibold">{selectedSize}</span>
+                </p>
+                <div className="flex gap-2">
+                  {SIZES.map((s) => (
+                    <button key={s} onClick={() => setSelectedSize(s)}
+                      className={`px-4 py-2 border font-['Poppins'] text-xs font-medium transition-all duration-200 ${selectedSize === s
+                        ? "border-[#FF007F] bg-[#FF007F] text-white"
+                        : "border-[#FFD1DC] text-[#7a4060] hover:border-[#FF007F] hover:text-[#FF007F]"}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quantity */}
+              <div className="mb-6">
+                <p className="font-['Poppins'] text-[10px] text-[#7a4060] tracking-widest uppercase mb-2">Quantity</p>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setQty(q => Math.max(1, q - 1))}
+                    className="w-9 h-9 border border-[#FFD1DC] flex items-center justify-center text-[#7a4060] hover:border-[#FF007F] hover:text-[#FF007F] transition-colors">
+                    <Minus size={14} />
+                  </button>
+                  <span className="font-['Poppins'] font-semibold text-[#2d1a26] w-8 text-center text-lg">{qty}</span>
+                  <button onClick={() => setQty(q => Math.min(product.stock || 99, q + 1))}
+                    className="w-9 h-9 border border-[#FFD1DC] flex items-center justify-center text-[#7a4060] hover:border-[#FF007F] hover:text-[#FF007F] transition-colors">
+                    <Plus size={14} />
+                  </button>
+                  <span className="font-['Poppins'] text-[10px] text-[#7a4060]/60 ml-1">{product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}</span>
+                </div>
+              </div>
+
+              {/* Total */}
+              {qty > 1 && (
+                <p className="font-['Poppins'] text-xs text-[#7a4060] mb-4">
+                  Total: <span className="text-[#FF007F] font-semibold text-sm">{formatMoney(product.price * qty)}</span>
+                </p>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex flex-col gap-3 mb-6">
+                <motion.button whileTap={{ scale: 0.98 }} onClick={handleBuyNow}
+                  disabled={product.stock === 0}
+                  className="w-full bg-[#FF007F] hover:bg-[#d4006a] disabled:opacity-50 text-white font-['Poppins'] text-[10px] tracking-widest uppercase py-4 transition-colors duration-200 flex items-center justify-center gap-2">
+                  <ShoppingBag size={14} /> Purchase Now
+                </motion.button>
+                <motion.button whileTap={{ scale: 0.98 }} onClick={handleAddToCart}
+                  disabled={product.stock === 0}
+                  className={`w-full border font-['Poppins'] text-[10px] tracking-widest uppercase py-4 transition-all duration-200 flex items-center justify-center gap-2 ${isAdded ? "bg-[#2d1a26] border-[#2d1a26] text-[#FF6ECF]" : "border-[#FF007F] text-[#FF007F] hover:bg-[#FF007F] hover:text-white"}`}>
+                  {isAdded ? <>✓ Added to Bag</> : <><Plus size={13} /> Add to Bag</>}
+                </motion.button>
+              </div>
+
+              {/* Tabs: details / shipping */}
+              <div className="border-t border-[#FFD1DC] pt-5">
+                <div className="flex gap-4 mb-4">
+                  {(["details", "shipping"] as const).map((t) => (
+                    <button key={t} onClick={() => setTab(t)}
+                      className={`font-['Poppins'] text-[10px] tracking-widest uppercase pb-1.5 border-b-2 transition-colors ${tab === t ? "border-[#FF007F] text-[#FF007F]" : "border-transparent text-[#7a4060] hover:text-[#FF007F]"}`}>
+                      {t === "details" ? "Product Details" : "Shipping Info"}
+                    </button>
+                  ))}
+                </div>
+                <AnimatePresence mode="wait">
+                  {tab === "details" ? (
+                    <motion.p key="details" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="font-['Poppins'] text-sm text-[#7a4060] leading-relaxed">
+                      {product.description || "Each piece is handcrafted with love and care. Made to order in our atelier."}
+                    </motion.p>
+                  ) : (
+                    <motion.div key="shipping" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="font-['Poppins'] text-sm text-[#7a4060] space-y-2">
+                      <p>🚚 Standard delivery: 5–10 business days</p>
+                      <p>✨ Express delivery available at checkout</p>
+                      <p>📦 Handcrafted & packaged with care</p>
+                      <p>↩️ Returns accepted within 14 days</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+// ─── Product Card ───────────────────────────────────────────────────────────────
+function ProductCard({ product, onAddToCart, onQuickView }: {
+  product: Product; onAddToCart: () => void; onQuickView: () => void;
+}) {
+  const { formatMoney } = useApp();
+  const [liked, setLiked] = useState(false);
+  const [added, setAdded] = useState(false);
+  const [activeImg, setActiveImg] = useState(0);
+  const intervalRef = useState<ReturnType<typeof setInterval> | null>(null);
+  const images = product.images?.length ? product.images : (product.image ? [product.image] : []);
+  const hasMultiple = images.length > 1;
+  const badgeColors: Record<string, string> = {
+    Sale: "bg-[#FF007F] text-white", Hot: "bg-[#2d1a26] text-white", New: "bg-[#FF6ECF] text-white",
+  };
+
+  const handleMouseEnter = () => {
+    if (!hasMultiple) return;
+    let i = 1;
+    const id = setInterval(() => { setActiveImg(i % images.length); i++; }, 1800);
+    (intervalRef as any)[0] = id;
+  };
+  const handleMouseLeave = () => {
+    setActiveImg(0);
+    if ((intervalRef as any)[0]) { clearInterval((intervalRef as any)[0]); (intervalRef as any)[0] = null; }
+  };
+  const handleAdd = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onAddToCart();
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1500);
+  };
+
+  return (
+    <motion.div
       initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4 }}
-      className="group bg-white"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      className="group bg-white cursor-pointer"
+      onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}
+      onClick={onQuickView}
     >
       <div className="relative overflow-hidden aspect-[3/4] bg-[#FFD1DC]/30">
-        {/* Image stack — animate between them */}
         {images.map((src, i) => (
-          <motion.img
-            key={i}
-            src={src}
-            alt={`${product.name} ${i + 1}`}
+          <motion.img key={i} src={src} alt={`${product.name} ${i + 1}`}
             className="absolute inset-0 w-full h-full object-cover"
-            animate={{ opacity: activeImg === i ? 1 : 0 }}
-            transition={{ duration: 0.8, ease: "easeInOut" }}
-          />
+            animate={{ opacity: activeImg === i ? 1 : 0 }} transition={{ duration: 0.8, ease: "easeInOut" }} />
         ))}
         {images.length === 0 && (
           <div className="absolute inset-0 bg-[#FFD1DC]/30 flex items-center justify-center">
             <span className="font-['Poppins'] text-[10px] text-[#7a4060]">No image</span>
           </div>
         )}
-
-        {/* Dot indicators */}
         {hasMultiple && (
           <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             {images.map((_, i) => (
@@ -342,15 +599,21 @@ function ProductCard({ product, onAddToCart, onPurchase }: { product: Product; o
             ))}
           </div>
         )}
-
         {product.badge && (
           <span className={`absolute top-3 left-3 text-[9px] font-['Poppins'] font-bold tracking-widest uppercase px-2 py-0.5 z-10 ${badgeColors[product.badge] ?? "bg-[#FF6ECF] text-white"}`}>
             {product.badge}
           </span>
         )}
-        <button onClick={() => setLiked(!liked)} className="absolute top-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+        <button onClick={(e) => { e.stopPropagation(); setLiked(!liked); }}
+          className="absolute top-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
           <Heart size={13} className={liked ? "fill-[#FF007F] text-[#FF007F]" : "text-[#2d1a26]"} />
         </button>
+        {/* Quick View label */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white/90 font-['Poppins'] text-[9px] tracking-widest uppercase px-3 py-1.5 text-[#2d1a26] shadow">
+            Quick View
+          </span>
+        </div>
         <motion.button whileTap={{ scale: 0.97 }} onClick={handleAdd}
           className={`absolute bottom-0 left-0 right-0 py-3 text-[10px] font-['Poppins'] tracking-widest uppercase font-semibold translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-10 ${added ? "bg-[#2d1a26] text-[#FF6ECF]" : "bg-[#FF007F] text-white"}`}>
           {added ? "Added ✓" : "Add to Bag"}
@@ -367,12 +630,6 @@ function ProductCard({ product, onAddToCart, onPurchase }: { product: Product; o
           {[...Array(5)].map((_, i) => <Star key={i} size={10} className="fill-[#FF6ECF] text-[#FF6ECF]" />)}
           <span className="font-['Poppins'] text-[9px] text-[#7a4060]/60 ml-1">(12)</span>
         </div>
-        <button
-          onClick={handlePurchase}
-          className="mt-3 w-full border border-[#FF007F] bg-white hover:bg-[#FF007F] text-[#FF007F] hover:text-white font-['Poppins'] text-[10px] tracking-widest uppercase py-2.5 transition-colors duration-200"
-        >
-          Purchase Now
-        </button>
       </div>
     </motion.div>
   );
@@ -380,20 +637,14 @@ function ProductCard({ product, onAddToCart, onPurchase }: { product: Product; o
 
 // ─── Product Grid ───────────────────────────────────────────────────────────────
 function ProductGrid({ searchQ, activeFilter, onFilterChange }: {
-  searchQ: string;
-  activeFilter: CategoryFilter;
-  onFilterChange: (f: CategoryFilter) => void;
+  searchQ: string; activeFilter: CategoryFilter; onFilterChange: (f: CategoryFilter) => void;
 }) {
-  const { products, addToCart, user, setAuthOpen, settings, purchaseProduct, formatMoney } = useApp();
-  const [pendingPurchase, setPendingPurchase] = useState<Product | null>(null);
-  const [purchaseComplete, setPurchaseComplete] = useState(false);
-  const [deliveryLocation, setDeliveryLocation] = useState("");
+  const { products, addToCart, user, setAuthOpen, settings } = useApp();
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
 
   const filtered = useMemo(() => {
     let result = [...products];
-    if (activeFilter !== "all") {
-      result = result.filter(p => p.category === activeFilter);
-    }
+    if (activeFilter !== "all") result = result.filter(p => p.category === activeFilter);
     if (searchQ) result = result.filter(p =>
       p.name.toLowerCase().includes(searchQ.toLowerCase()) ||
       p.category.toLowerCase().includes(searchQ.toLowerCase())
@@ -406,32 +657,13 @@ function ProductGrid({ searchQ, activeFilter, onFilterChange }: {
     addToCart(product);
   };
 
-  const handlePurchase = (product: Product) => {
-    if (!user) { setAuthOpen(true); return; }
-    setDeliveryLocation("");
-    setPendingPurchase(product);
-  };
-
-  const confirmPurchase = () => {
-    if (!pendingPurchase || !deliveryLocation.trim()) return;
-    purchaseProduct(pendingPurchase, deliveryLocation.trim());
-    setPurchaseComplete(true);
-    setTimeout(() => {
-      setPurchaseComplete(false);
-      setPendingPurchase(null);
-    }, 1800);
-  };
-
-  // Build filter tabs dynamically from settings.categories
   const filterTabs: CategoryFilter[] = ["all", ...settings.categories.map(c => c.name)];
 
   return (
     <section id="product-grid" className="py-16 md:py-20 bg-[#fff9fb] scroll-mt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <AnimatePresence>
-          {activeFilter !== "all" && (
-            <Breadcrumb activeFilter={activeFilter} onNavigate={onFilterChange} />
-          )}
+          {activeFilter !== "all" && <Breadcrumb activeFilter={activeFilter} onNavigate={onFilterChange} />}
         </AnimatePresence>
         <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-10 gap-4">
           <div>
@@ -460,52 +692,18 @@ function ProductGrid({ searchQ, activeFilter, onFilterChange }: {
                 key={p.id}
                 product={p}
                 onAddToCart={() => handleAdd(p)}
-                onPurchase={() => handlePurchase(p)}
+                onQuickView={() => {
+                  if (!user) { setAuthOpen(true); return; }
+                  setDetailProduct(p);
+                }}
               />
             ))}
           </div>
         )}
       </div>
       <AnimatePresence>
-        {pendingPurchase && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.95, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 16 }}
-              className="bg-white border border-[#FFD1DC] shadow-2xl max-w-sm w-full p-6">
-              {purchaseComplete ? (
-                <div className="text-center py-3">
-                  <CheckCircle2 size={34} className="mx-auto text-green-600 mb-3" />
-                  <h3 className="font-['Playfair_Display'] text-xl font-bold text-[#2d1a26] mb-2">Payment Confirmed</h3>
-                  <p className="font-['Poppins'] text-xs text-[#7a4060]">Your order was sent to the admin panel.</p>
-                </div>
-              ) : (
-                <>
-                  <h3 className="font-['Playfair_Display'] text-xl font-bold text-[#2d1a26] mb-2">Confirm Purchase?</h3>
-                  <p className="font-['Poppins'] text-sm text-[#7a4060] mb-4">
-                    Buy <span className="text-[#2d1a26] font-semibold">{pendingPurchase.name}</span> for <span className="text-[#FF007F] font-semibold">{formatMoney(pendingPurchase.price)}</span>?
-                  </p>
-                  <label className="block font-['Poppins'] text-[10px] text-[#7a4060] tracking-widest uppercase mb-1.5">Delivery Location</label>
-                  <textarea
-                    value={deliveryLocation}
-                    onChange={(e) => setDeliveryLocation(e.target.value)}
-                    rows={3}
-                    placeholder="Type your exact delivery address, city, and landmark..."
-                    className="w-full border border-[#FFD1DC] focus:border-[#FF007F] bg-[#fff9fb] px-3 py-2.5 font-['Poppins'] text-sm text-[#2d1a26] outline-none resize-none mb-4"
-                  />
-                  <div className="flex gap-3">
-                    <button onClick={() => setPendingPurchase(null)}
-                      className="flex-1 border border-[#FFD1DC] text-[#7a4060] font-['Poppins'] text-[10px] tracking-widest uppercase py-3 hover:border-[#FF6ECF] transition-colors">
-                      No
-                    </button>
-                    <button onClick={confirmPurchase} disabled={!deliveryLocation.trim()}
-                      className="flex-1 bg-[#FF007F] hover:bg-[#d4006a] disabled:opacity-50 disabled:cursor-not-allowed text-white font-['Poppins'] text-[10px] tracking-widest uppercase py-3 transition-colors">
-                      Yes, Pay
-                    </button>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          </motion.div>
+        {detailProduct && (
+          <ProductDetailModal product={detailProduct} onClose={() => setDetailProduct(null)} />
         )}
       </AnimatePresence>
     </section>
