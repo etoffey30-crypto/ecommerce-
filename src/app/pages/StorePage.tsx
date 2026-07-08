@@ -51,6 +51,7 @@ function Navbar({ onSearch, activeFilter, onFilterChange, onAccountOpen }: {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQ, setSearchQ] = useState("");
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
   function handleNavClick(link: string) {
@@ -87,10 +88,10 @@ function Navbar({ onSearch, activeFilter, onFilterChange, onAccountOpen }: {
       <nav className="sticky top-0 z-40 bg-white border-b border-[#FFD1DC] shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16 md:h-20">
-            <button className="md:hidden p-2 text-[#FF007F]" onClick={() => setMenuOpen(!menuOpen)}>
+            <button className="md:hidden p-2 text-[#FF007F]" onClick={() => { setMenuOpen(!menuOpen); setUserMenuOpen(false); }}>
               {menuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
-            <a href="/" className="flex items-center">
+            <a href={import.meta.env.BASE_URL} className="flex items-center">
               <motion.img src={settings.logoImage} alt="Atelier Angélique" className="h-12 md:h-14 w-auto object-contain"
                 initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} />
             </a>
@@ -116,18 +117,45 @@ function Navbar({ onSearch, activeFilter, onFilterChange, onAccountOpen }: {
                 <Search size={19} />
               </button>
               {user ? (
-                <div className="relative group">
-                  <button className="p-1.5 flex items-center gap-1 text-[#2d1a26]/70 hover:text-[#FF007F] transition-colors">
-                    <User size={19} /><ChevronDown size={12} className="hidden md:block" />
+                <div className="relative">
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="p-1.5 flex items-center gap-1 text-[#2d1a26]/70 hover:text-[#FF007F] transition-colors"
+                  >
+                    <User size={19} /><ChevronDown size={12} className={`transition-transform duration-200 ${userMenuOpen ? "rotate-180" : ""}`} />
                   </button>
-                  <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-[#FFD1DC] shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 rounded-sm overflow-hidden z-50">
-                    <p className="px-4 py-2 font-['Poppins'] text-[10px] text-[#7a4060] tracking-wide uppercase border-b border-[#FFD1DC]">{user.name}</p>
-                    {user.role === "admin" && (
-                      <a href={`${import.meta.env.BASE_URL}admin`} className="block px-4 py-2.5 font-['Poppins'] text-xs text-[#2d1a26] hover:bg-[#fff0f5] hover:text-[#FF007F] transition-colors">✦ Admin Panel</a>
+                  <AnimatePresence>
+                    {userMenuOpen && (
+                      <>
+                        {/* backdrop to close on outside tap */}
+                        <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                        <motion.div
+                          initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute right-0 top-full mt-2 w-52 bg-white border border-[#FFD1DC] shadow-xl rounded-sm overflow-hidden z-50"
+                        >
+                          <p className="px-4 py-2.5 font-['Poppins'] text-[10px] text-[#7a4060] tracking-wide uppercase border-b border-[#FFD1DC] bg-[#fff9fb]">{user.name}</p>
+                          {user.role === "admin" && (
+                            <a href={`${import.meta.env.BASE_URL}admin`}
+                              onClick={() => setUserMenuOpen(false)}
+                              className="flex items-center gap-2 px-4 py-3 font-['Poppins'] text-xs text-[#FF007F] font-semibold hover:bg-[#fff0f5] transition-colors border-b border-[#FFD1DC]/50">
+                              ✦ Admin Panel
+                            </a>
+                          )}
+                          <button onClick={() => { setUserMenuOpen(false); onAccountOpen(); }}
+                            className="w-full text-left px-4 py-3 font-['Poppins'] text-xs text-[#2d1a26] hover:bg-[#fff0f5] hover:text-[#FF007F] transition-colors border-b border-[#FFD1DC]/50">
+                            Purchases &amp; Tracking
+                          </button>
+                          <button onClick={() => { setUserMenuOpen(false); logout(); }}
+                            className="w-full text-left px-4 py-3 font-['Poppins'] text-xs text-[#2d1a26] hover:bg-[#fff0f5] hover:text-[#FF007F] transition-colors">
+                            Sign Out
+                          </button>
+                        </motion.div>
+                      </>
                     )}
-                    <button onClick={onAccountOpen} className="w-full text-left px-4 py-2.5 font-['Poppins'] text-xs text-[#2d1a26] hover:bg-[#fff0f5] hover:text-[#FF007F] transition-colors">Purchases & Tracking</button>
-                    <button onClick={logout} className="w-full text-left px-4 py-2.5 font-['Poppins'] text-xs text-[#2d1a26] hover:bg-[#fff0f5] hover:text-[#FF007F] transition-colors">Sign Out</button>
-                  </div>
+                  </AnimatePresence>
                 </div>
               ) : (
                 <button className="p-1.5 text-[#2d1a26]/70 hover:text-[#FF007F] transition-colors" onClick={() => setAuthOpen(true)}>
@@ -167,12 +195,37 @@ function Navbar({ onSearch, activeFilter, onFilterChange, onAccountOpen }: {
                 const isActive = matched ? matched.name === activeFilter : false;
                 return (
                   <button key={link} onClick={() => handleNavClick(link)}
-                    className={`w-full text-left block py-3 font-['Poppins'] text-xs tracking-widest uppercase border-b border-[#FFD1DC]/50 transition-colors
-                      ${isActive ? "text-[#FF007F] font-semibold" : "text-[#2d1a26]/70 hover:text-[#FF007F]"}`}>
+                    className={`w-full text-left block py-3.5 font-['Poppins'] text-xs tracking-widest uppercase border-b border-[#FFD1DC]/50 transition-colors
+                      ${isActive ? "text-[#FF007F] font-semibold" : "text-[#2d1a26]/70"}`}>
                     {link}
                   </button>
                 );
               })}
+              {/* Mobile user account section */}
+              {user ? (
+                <div className="mt-2 pt-2 border-t border-[#FFD1DC]">
+                  <p className="py-2 font-['Poppins'] text-[10px] text-[#7a4060] tracking-widest uppercase">{user.name}</p>
+                  {user.role === "admin" && (
+                    <a href={`${import.meta.env.BASE_URL}admin`}
+                      className="w-full text-left block py-3.5 font-['Poppins'] text-xs text-[#FF007F] font-semibold tracking-widest uppercase border-b border-[#FFD1DC]/50">
+                      ✦ Admin Panel
+                    </a>
+                  )}
+                  <button onClick={() => { setMenuOpen(false); onAccountOpen(); }}
+                    className="w-full text-left block py-3.5 font-['Poppins'] text-xs tracking-widest uppercase border-b border-[#FFD1DC]/50 text-[#2d1a26]/70">
+                    Purchases &amp; Tracking
+                  </button>
+                  <button onClick={() => { setMenuOpen(false); logout(); }}
+                    className="w-full text-left block py-3.5 font-['Poppins'] text-xs tracking-widest uppercase text-[#2d1a26]/70">
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => { setMenuOpen(false); setAuthOpen(true); }}
+                  className="w-full mt-3 bg-[#FF007F] text-white font-['Poppins'] text-[10px] tracking-widest uppercase py-3.5 transition-colors">
+                  Sign In
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -604,18 +657,20 @@ function ProductCard({ product, onAddToCart, onQuickView }: {
             {product.badge}
           </span>
         )}
+        {/* Heart — always visible on mobile, hover-only on desktop */}
         <button onClick={(e) => { e.stopPropagation(); setLiked(!liked); }}
-          className="absolute top-3 right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+          className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm z-10 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
           <Heart size={13} className={liked ? "fill-[#FF007F] text-[#FF007F]" : "text-[#2d1a26]"} />
         </button>
-        {/* Quick View label */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center">
+        {/* Quick View label — desktop hover only */}
+        <div className="hidden md:flex absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 items-center justify-center pointer-events-none">
           <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-white/90 font-['Poppins'] text-[9px] tracking-widest uppercase px-3 py-1.5 text-[#2d1a26] shadow">
             Quick View
           </span>
         </div>
+        {/* Add to Bag — always visible on mobile, slides up on desktop hover */}
         <motion.button whileTap={{ scale: 0.97 }} onClick={handleAdd}
-          className={`absolute bottom-0 left-0 right-0 py-3 text-[10px] font-['Poppins'] tracking-widest uppercase font-semibold translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-10 ${added ? "bg-[#2d1a26] text-[#FF6ECF]" : "bg-[#FF007F] text-white"}`}>
+          className={`absolute bottom-0 left-0 right-0 py-3 text-[10px] font-['Poppins'] tracking-widest uppercase font-semibold z-10 md:translate-y-full md:group-hover:translate-y-0 transition-transform duration-300 ${added ? "bg-[#2d1a26] text-[#FF6ECF]" : "bg-[#FF007F] text-white"}`}>
           {added ? "Added ✓" : "Add to Bag"}
         </motion.button>
       </div>
@@ -976,11 +1031,11 @@ function CartDrawer() {
                     <p className="font-['Poppins'] text-sm font-semibold text-[#2d1a26] mt-1">{formatMoney(item.price)}</p>
                     <div className="flex items-center justify-between mt-2">
                       <div className="flex items-center border border-[#FFD1DC]">
-                        <button onClick={() => updateQty(item.id, item.quantity - 1)} className="w-7 h-7 flex items-center justify-center hover:bg-[#fff0f5] transition-colors"><Minus size={11} /></button>
-                        <span className="font-['Poppins'] text-xs w-5 text-center">{item.quantity}</span>
-                        <button onClick={() => updateQty(item.id, item.quantity + 1)} className="w-7 h-7 flex items-center justify-center hover:bg-[#fff0f5] transition-colors"><Plus size={11} /></button>
+                        <button onClick={() => updateQty(item.id, item.quantity - 1)} className="w-9 h-9 flex items-center justify-center hover:bg-[#fff0f5] transition-colors"><Minus size={12} /></button>
+                        <span className="font-['Poppins'] text-xs w-6 text-center">{item.quantity}</span>
+                        <button onClick={() => updateQty(item.id, item.quantity + 1)} className="w-9 h-9 flex items-center justify-center hover:bg-[#fff0f5] transition-colors"><Plus size={12} /></button>
                       </div>
-                      <button onClick={() => removeFromCart(item.id)} className="text-[#7a4060] hover:text-[#FF007F] transition-colors"><Trash2 size={14} /></button>
+                      <button onClick={() => removeFromCart(item.id)} className="w-9 h-9 flex items-center justify-center text-[#7a4060] hover:text-[#FF007F] transition-colors"><Trash2 size={15} /></button>
                     </div>
                   </div>
                 </div>
